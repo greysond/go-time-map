@@ -1,4 +1,4 @@
-[![Go Report Card](https://goreportcard.com/badge/github.com/greysond/go-time-map)](https://goreportcard.com/badge/github.com/greysond/go-time-map)
+[![Go Report Card](https://goreportcard.com/badge/github.com/greysond/go-time-map)](https://goreportcard.com/report/github.com/greysond/go-time-map)
 [![Build Status](https://travis-ci.org/greysond/go-time-map.svg?branch=master)](https://travis-ci.org/greysond/go-time-map)
 [![GoDoc](https://godoc.org/github.com/greysond/go-time-map?status.svg)](http://godoc.org/github.com/greysond/go-time-map)
 
