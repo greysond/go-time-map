@@ -1,4 +1,4 @@
-package time_map
+package timeMap
 
 import (
 	"errors"
@@ -7,111 +7,37 @@ import (
 )
 
 var (
+	// The error returned when AddInterval is called
+	// with an end time that's before the start time
 	ErrInvalidIntervalEndBefore error = errors.New("Invalid Interval: end time cannot be before start time")
-	ErrIntervalIDNotFound       error = errors.New("Interval ID Not Found")
-	ErrInvalidIntervalID        error = errors.New("Invalid Interval ID: cannot be zero")
+
+	// The error returned when RemoveIntervalID is
+	// called with a non-existent interval id
+	ErrIntervalIDNotFound error = errors.New("Interval ID Not Found")
+
+	// The error returned when RemoveIntervalID is
+	// called with a zero-value interval id
+	ErrInvalidIntervalID error = errors.New("Invalid Interval ID: cannot be zero")
 )
 
-type TimeMap interface {
-	AddInterval(start, end *time.Time, obj interface{}) (id int64, err error)
-	Get(a time.Time) interface{}
-	GetOk(a time.Time) (interface{}, bool)
-	RemoveIntervalID(id int64) error
+// Create a new, empty TimeMap
+func New() *TimeMap {
+	return &TimeMap{}
 }
 
-func NewTimeMap() TimeMap {
-	return &timeMap{
-		counter:   0,
-		intervals: []*interval{},
-		mu:        &sync.RWMutex{},
-	}
-}
-
-type interval struct {
-	id    int64
-	start *time.Time
-	end   *time.Time
-	item  interface{}
-}
-
-func (i interval) contains(a time.Time) bool {
-	result := true
-
-	if i.start != nil {
-		result = result && !a.Before(*i.start)
-	}
-
-	if i.end != nil {
-		result = result && !a.After(*i.end)
-	}
-
-	return result
-}
-
-type intervals []*interval
-
-type timeMap struct {
-	counter   int64
+// TimeMap is able to store interfaces within intervals of time,
+// which then may be retrieved by supplying a time which is
+// contained in a previously supplied interval
+type TimeMap struct {
+	counter   uint64
 	intervals intervals
-	mu        *sync.RWMutex
+	mu        sync.RWMutex
 }
 
-func (tm *timeMap) Get(a time.Time) interface{} {
-	tm.mu.RLock()
-	defer tm.mu.RUnlock()
-
-	item, _ := tm.GetOk(a)
-
-	return item
-}
-
-func (tm *timeMap) GetOk(a time.Time) (interface{}, bool) {
-	tm.mu.RLock()
-	defer tm.mu.RUnlock()
-
-	var (
-		item  interface{} = nil
-		found bool        = false
-	)
-
-	// Find the highest priority interval that the time fits into
-	for i, interval := range tm.intervals {
-		if interval.contains(a) {
-			found = true
-			item = tm.intervals[i].item
-		}
-	}
-
-	return item, found
-}
-
-func (tm *timeMap) RemoveIntervalID(id int64) error {
-	tm.mu.Lock()
-	defer tm.mu.Unlock()
-
-	if id == 0 {
-		return ErrInvalidIntervalID
-	}
-
-	intervalIndex := -1
-
-	for i, interval := range tm.intervals {
-		if interval.id == id {
-			intervalIndex = i
-			break
-		}
-	}
-
-	if intervalIndex == -1 {
-		return ErrIntervalIDNotFound
-	}
-
-	tm.intervals = append(tm.intervals[:intervalIndex], tm.intervals[intervalIndex+1:]...)
-
-	return nil
-}
-
-func (tm *timeMap) AddInterval(start, end *time.Time, obj interface{}) (int64, error) {
+// Add an interface which may be looked up with
+// a time that lies within the supplied interval (inclusive).
+// Returns an ID for the interval which may be used to remove it later.
+func (tm *TimeMap) AddInterval(start, end *time.Time, obj interface{}) (uint64, error) {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
 
@@ -119,10 +45,7 @@ func (tm *timeMap) AddInterval(start, end *time.Time, obj interface{}) (int64, e
 		return 0, ErrInvalidIntervalEndBefore
 	}
 
-	var (
-		startT *time.Time = nil
-		endT   *time.Time = nil
-	)
+	var startT, endT *time.Time
 
 	if start != nil {
 		t := start.Add(0)
@@ -149,4 +72,76 @@ func (tm *timeMap) AddInterval(start, end *time.Time, obj interface{}) (int64, e
 	//sort.Sort(tm.intervals)
 
 	return id, nil
+}
+
+// Look up an interface for the supplied time.
+// If multiple time intervals match, the interval that
+// was defined latest will match.
+// Returns nil if not found
+func (tm *TimeMap) Get(a time.Time) interface{} {
+	tm.mu.RLock()
+	defer tm.mu.RUnlock()
+
+	item, _ := tm.GetOk(a)
+
+	return item
+}
+
+// Same as Get(time.Time), but also returns true or false
+// if there was a matching interval.
+func (tm *TimeMap) GetOk(a time.Time) (interface{}, bool) {
+	tm.mu.RLock()
+	defer tm.mu.RUnlock()
+
+	var (
+		item  interface{}
+		found bool
+	)
+
+	// Find the highest priority interval that the time fits into
+	for i, interval := range tm.intervals {
+		if interval.contains(a) {
+			found = true
+			item = tm.intervals[i].item
+		}
+	}
+
+	return item, found
+}
+
+// Remove an interval referenced by the id that was returned by AddInterval
+func (tm *TimeMap) RemoveIntervalID(id uint64) error {
+	tm.mu.Lock()
+	defer tm.mu.Unlock()
+
+	if id == 0 {
+		return ErrInvalidIntervalID
+	}
+
+	intervalIndex := -1
+
+	for i, interval := range tm.intervals {
+		if interval.id == id {
+			intervalIndex = i
+			break
+		}
+	}
+
+	if intervalIndex == -1 {
+		return ErrIntervalIDNotFound
+	}
+
+	tm.intervals = append(tm.intervals[:intervalIndex], tm.intervals[intervalIndex+1:]...)
+
+	return nil
+}
+
+// Clear removes all intervals from the TimeMap.
+// Does not reset the counter, so interval IDs remain
+// unique within the map
+func (tm *TimeMap) Clear() {
+	tm.mu.Lock()
+	defer tm.mu.Unlock()
+
+	tm.intervals = nil
 }

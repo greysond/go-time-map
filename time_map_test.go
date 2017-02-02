@@ -1,6 +1,7 @@
-package time_map
+package timeMap
 
 import (
+	"fmt"
 	"testing"
 	"time"
 )
@@ -21,7 +22,7 @@ var (
 )
 
 func TestTimeMap_AddInterval(t *testing.T) {
-	tm := NewTimeMap()
+	tm := New()
 
 	if _, err := tm.AddInterval(nil, nil, 0); err != nil {
 		t.Error(err.Error())
@@ -42,7 +43,6 @@ func TestTimeMap_AddInterval(t *testing.T) {
 	if _, err := tm.AddInterval(e, f, 4); err != nil {
 		t.Error(err.Error())
 	}
-
 
 	if val, ok := tm.GetOk(*b); ok {
 		if val != 2 {
@@ -67,4 +67,124 @@ func TestTimeMap_AddInterval(t *testing.T) {
 	} else {
 		t.Error("Should have found something")
 	}
+}
+
+func ExampleNew() {
+	today := time.Now()
+	yesterday := today.AddDate(0, 0, -1)
+	tomorrow := today.AddDate(0, 0, 1)
+
+	tm := New()
+
+	// No begin time
+	tm.AddInterval(nil, &tomorrow, "up to tomorrow")
+
+	str := tm.Get(today)
+	fmt.Println(str) // up to tomorrow
+
+	// Starting yesterday
+	tm.AddInterval(&yesterday, nil, "since yesterday")
+
+	str, ok := tm.GetOk(today)
+	if ok {
+		fmt.Println(str) // since yesterday
+	}
+
+	// Create an explicit interval
+	id, _ := tm.AddInterval(&yesterday, &tomorrow, "these days")
+
+	str, ok = tm.GetOk(today)
+	if ok {
+		fmt.Println(str) // these days
+	}
+
+	// Delete an interval, referenced by id
+	err := tm.RemoveIntervalID(id)
+
+	if err == nil {
+		fmt.Println("id removed")
+	} else {
+		fmt.Println("id not found") // Not reached in this case
+	}
+
+	// Verify that the old value is in effect
+	str, ok = tm.GetOk(today)
+	if ok {
+		fmt.Println(str) // since yesterday
+	}
+
+	// Output:
+	// up to tomorrow
+	// since yesterday
+	// these days
+	// id removed
+	// since yesterday
+}
+
+func ExampleTimeMap_AddInterval() {
+	today := time.Now()
+	yesterday := today.AddDate(0, 0, -1)
+	tomorrow := today.AddDate(0, 0, 1)
+
+	tm := New()
+
+	// [−∞, +∞]
+	_, err := tm.AddInterval(nil, nil, "all of time")
+
+	if err != nil {
+		fmt.Println("invalid interval") // Prints nothing
+	}
+
+	// [yesterday, tomorrow]
+	_, err = tm.AddInterval(&yesterday, &tomorrow, "finite range")
+
+	if err != nil {
+		fmt.Println("invalid interval") // Prints nothing
+	}
+
+	// [tomorrow, +∞]
+	_, err = tm.AddInterval(&tomorrow, nil, "tomorrow and forever")
+
+	if err != nil {
+		fmt.Println("invalid interval") // Prints nothing
+	}
+
+	// [tomorrow, yesterday] (invalid)
+	_, err = tm.AddInterval(&tomorrow, &yesterday, "tomorrow and forever")
+
+	if err != nil {
+		fmt.Println("invalid interval") // Will print error
+	}
+
+	// Output:
+	// invalid interval
+}
+
+func ExampleTimeMap_Clear() {
+	today := time.Now()
+	yesterday := today.AddDate(0, 0, -1)
+	tomorrow := today.AddDate(0, 0, 1)
+
+	tm := New()
+
+	// No begin time
+	tm.AddInterval(&yesterday, &tomorrow, "these days")
+
+	if str, ok := tm.GetOk(today); ok {
+		fmt.Println(str) // these days
+	} else {
+		fmt.Println("not found")
+	}
+
+	tm.Clear()
+
+	if str, ok := tm.GetOk(today); ok {
+		fmt.Println(str) // these days
+	} else {
+		fmt.Println("not found")
+	}
+
+	// Output:
+	// these days
+	// not found
 }
