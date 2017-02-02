@@ -7,20 +7,20 @@ import (
 )
 
 var (
-	// The error returned when AddInterval is called
-	// with an end time that's before the start time
+	// ErrInvalidIntervalEndBefore is the error returned when
+	// AddInterval is called with an end time that's before the start time
 	ErrInvalidIntervalEndBefore error = errors.New("Invalid Interval: end time cannot be before start time")
 
-	// The error returned when RemoveIntervalID is
-	// called with a non-existent interval id
+	// ErrIntervalIDNotFound is the error returned when
+	// RemoveIntervalID is called with a non-existent interval id
 	ErrIntervalIDNotFound error = errors.New("Interval ID Not Found")
 
-	// The error returned when RemoveIntervalID is
-	// called with a zero-value interval id
+	// ErrInvalidIntervalID is the error returned when
+	// RemoveIntervalID is called with a zero-value interval id
 	ErrInvalidIntervalID error = errors.New("Invalid Interval ID: cannot be zero")
 )
 
-// Create a new, empty TimeMap
+// New creates a new, empty TimeMap
 func New() *TimeMap {
 	return &TimeMap{}
 }
@@ -34,7 +34,7 @@ type TimeMap struct {
 	mu        sync.RWMutex
 }
 
-// Add an interface which may be looked up with
+// AddInterval adds an interface which may be looked up with
 // a time that lies within the supplied interval (inclusive).
 // Returns an ID for the interval which may be used to remove it later.
 func (tm *TimeMap) AddInterval(start, end *time.Time, obj interface{}) (uint64, error) {
@@ -74,7 +74,7 @@ func (tm *TimeMap) AddInterval(start, end *time.Time, obj interface{}) (uint64, 
 	return id, nil
 }
 
-// Look up an interface for the supplied time.
+// Get looks up an interface for the supplied time.
 // If multiple time intervals match, the interval that
 // was defined latest will match.
 // Returns nil if not found
@@ -87,7 +87,7 @@ func (tm *TimeMap) Get(a time.Time) interface{} {
 	return item
 }
 
-// Same as Get(time.Time), but also returns true or false
+// GetOk works the same as Get(time.Time), but also returns true or false
 // if there was a matching interval.
 func (tm *TimeMap) GetOk(a time.Time) (interface{}, bool) {
 	tm.mu.RLock()
@@ -109,7 +109,8 @@ func (tm *TimeMap) GetOk(a time.Time) (interface{}, bool) {
 	return item, found
 }
 
-// Remove an interval referenced by the id that was returned by AddInterval
+// RemoveIntervalID removes the interval referenced by
+// the id that was returned by AddInterval
 func (tm *TimeMap) RemoveIntervalID(id uint64) error {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
